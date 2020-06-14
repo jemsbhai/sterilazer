@@ -16,13 +16,20 @@ class Countdown extends AnimatedWidget {
 //    print('inMinutes ${clockTimer.inMinutes.toString()}');
 //    print('inSeconds ${clockTimer.inSeconds.toString()}');
 //    print('inSeconds.remainder ${clockTimer.inSeconds.remainder(60).toString()}');
-
-    return Text(
-      "$timerText",
-      style: TextStyle(
-        fontSize: 44,
-        color: Theme.of(context).primaryColor,
-      ),
-    );
+    if(timerText =='0:00'){
+      return Text('Sterilization finished!',style: TextStyle(
+        fontSize: 22
+      ),);
+    } else {
+      return Text(
+        "$timerText",
+        style: TextStyle(
+          fontSize: 44,
+          color: Theme
+              .of(context)
+              .primaryColor,
+        ),
+      );
+    }
   }
 }

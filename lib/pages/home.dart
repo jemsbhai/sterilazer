@@ -1,7 +1,10 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:sterilazer/classes/countdown.dart';
-
+import 'package:sterilazer/pages/command.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 
 class Home extends StatefulWidget {
   final bool queueState;
@@ -15,6 +18,7 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> with TickerProviderStateMixin{
   String time;
   AnimationController _controller;
+  final Firestore _firestore = Firestore.instance;
   bool on = false;
   final TextEditingController _textEditingController = new TextEditingController();
 
@@ -33,37 +37,48 @@ class _HomeState extends State<Home> with TickerProviderStateMixin{
 
   Widget checkOn(){
       if (on){
-        return Container(
-          width: 300,
-          height: 300,
-          child: Align(alignment: Alignment.center,
-          child: Container(
-            height: 280,
-            width: 280,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white
+        return Column(
+          children: <Widget>[
+            Text('Steri-Laser is On!',style: TextStyle(
+              fontSize: 22
+            ),),
+            SizedBox(
+              height: 15,
             ),
-            child: Align(
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Countdown(
-                    animation: StepTween(
-                      begin: int.parse(time), // THIS IS A USER ENTERED NUMBER
-                      end: 0,
-                    ).animate(_controller),
+            Container(
+              width: 300,
+              height: 300,
+              child: Align(alignment: Alignment.center,
+                child: Container(
+                  height: 280,
+                  width: 280,
+                  decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white
                   ),
-                ],
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Countdown(
+                          animation: StepTween(
+                            begin: int.parse(time), // THIS IS A USER ENTERED NUMBER
+                            end: 0,
+                          ).animate(_controller),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),),
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.blueAccent
               ),
-            ),
-          ),),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-              color: Colors.blueAccent
-          ),
-        );
+            )
+          ],
+        )
+          ;
   }
       else{
         return TextField(
@@ -81,16 +96,62 @@ class _HomeState extends State<Home> with TickerProviderStateMixin{
   }
       }
 
+  getExpenseItems(AsyncSnapshot<QuerySnapshot> snapshot) {
+    return snapshot.data.documents
+        .map((doc) => new Column(children: <Widget>[
+      Container(
+          decoration: BoxDecoration(
+              border: Border.all(color: Colors.blueAccent)
+          ),
+          child: ListTile(
+              onTap: ()async {
+                var response = await http.get('https://us-central1-aiot-fit-xlab.cloudfunctions.net/sterilazeron');
+                print(response.body);
+                setState(() {
+                  time = doc['duration'];
+                  on = true;
+                  _controller = AnimationController(
+                      vsync: this,
+                      duration: Duration(
+                          seconds: int.parse(time)
+                      )
+                  );
+                  _controller.forward();
+                });
+              },
+              title: Text(doc["name"]), leading:
+          Text(doc['duration'] + '\nseconds',textAlign: TextAlign.center,),
+              subtitle: Text(doc["description"].toString()))
+      ) ,
+      SizedBox(
+        height: 5,
+      )
+    ],)
+    )
+        .toList();
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        title: Padding(
+          padding: EdgeInsets.all(16),
+          child: Image(
+            image: AssetImage(
+                'assets/images/sterilaser.png'
+            ),
+          ),
+        ),
         elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
         child: Column(
+
           children: <Widget>[
             checkOn(),
             SizedBox(
@@ -107,13 +168,15 @@ class _HomeState extends State<Home> with TickerProviderStateMixin{
                   child: Text('Start'),
                   color: Colors.green,
                   onPressed: (){
-                    setState(() {
+                    setState(() async{
+                      var response = await http.get('https://us-central1-aiot-fit-xlab.cloudfunctions.net/sterilazeron');
+                      print(response.body);
                       on = true;
                       _controller = AnimationController(
                           vsync: this,
                           duration: Duration(
                               seconds: int.parse(time)
-                          )// gameData.levelClock is a user entered number elsewhere in the applciation
+                          )
                       );
                       _controller.forward();
                     });
@@ -122,7 +185,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin{
                 FlatButton(
                   color: Colors.red,
                   child: Text('Stop'),
-                  onPressed: (){
+                  onPressed: () async{
+                    var response = await http.get('https://us-central1-aiot-fit-xlab.cloudfunctions.net/sterilazeroff');
+                    print(response.body);
                     setState(() {
                       on = false;
                     });
@@ -136,11 +201,48 @@ class _HomeState extends State<Home> with TickerProviderStateMixin{
                   },
                 ),
 
-gi
+
+
               ],
-            )
+            ),
 
+            SizedBox(
+              height: 15,
+            ),
+            Divider(thickness: 3,),
+            Text('Your Commands',style: TextStyle(
+              fontSize: 22
+            ),),
+            SizedBox(
+              height: 5,
+            ),
+//            FlatButton(
+//              child: Text('h'),
+//              onPressed: () async {
+//                QuerySnapshot querySnapshot = await Firestore.instance.collection("commands").getDocuments();
+//                print(querySnapshot.documents[0].data['name']);
+//              },
+//            ),
+          Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.all(16.0),
+              child:  FutureBuilder(
+                  future: Firestore.instance.collection('commands').getDocuments(),
+                  builder: (BuildContext context, AsyncSnapshot snapshot) {
 
+                    if (snapshot.hasData) {
+                      if (snapshot.data!=null) {
+
+                        return new ListView(
+                            shrinkWrap: true,children: getExpenseItems(snapshot));
+                      } else {
+                        return new CircularProgressIndicator();
+                      }
+                    }
+                    return Container();
+                  }
+              )
+          ),
           ],
         ),
       ),
@@ -149,7 +251,13 @@ gi
         backgroundColor: Colors.white,
         child: Icon(Icons.add,color: Colors.blueAccent,),
         onPressed: (){
-
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (BuildContext context) => CommandBuilder()
+            )
+          );
         },
 
       ),
@@ -160,14 +268,9 @@ gi
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: <Widget>[
-              IconButton(
-                icon: Icon(Icons.wb_sunny),
-                onPressed: (){},
-              ),
-              IconButton(
-                icon: Icon(Icons.wb_sunny),
-                onPressed: (){},
-              ),
+              Container(
+                height: 30,
+              )
             ],
           ),
         )
